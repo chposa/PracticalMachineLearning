@@ -1,0 +1,78 @@
+---
+title: "PracticalMachineLearning"
+author: "Chposa"
+date: "8/28/2019"
+output: html_document
+---
+
+## Summary
+
+The goal of your project is to predict the manner in which they did the exercise.Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively.In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+
+##libraries
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(randomForest)
+library(corrplot)
+set.seed(12345)
+
+```
+## Loading data and cleaning
+Data was downloaded and stored inside the project folder.
+```{r}
+training <- read.csv('pml-training.csv', sep = ",")
+testing <-read.csv('pml-testing.csv', sep = ",")
+inTrain  <- createDataPartition(training$classe, p=0.7, list=FALSE)
+TrainSet <- training[inTrain, ]
+TestSet  <- training[-inTrain, ]
+```
+Removing N/A variables and variables with near zero varience.
+```{r}
+zeroVar <- nearZeroVar(TrainSet)
+TrainSet <- TrainSet[, -zeroVar]
+TestSet  <- TestSet[, -zeroVar]
+NaSet    <- sapply(TrainSet, function(x) mean(is.na(x))) > 0.95
+TrainSet <- TrainSet[, NaSet==FALSE]
+TestSet  <- TestSet[, NaSet==FALSE]
+TrainSet <- TrainSet[, -(1:5)]
+TestSet  <- TestSet[, -(1:5)]
+```
+## Correlation analysis
+```{r}
+correlationMat <- cor(TrainSet[, -54])
+corrplot(correlationMat, order = "FPC", method = "color", type = "lower", 
+         tl.cex = 0.8, tl.col = rgb(0, 0, 0))
+```
+
+There are a few variables that has higher correlation shown in dark.
+
+## Data modelling
+# 1.Decision tree method
+```{r}
+set.seed(12345)
+modFitDecTree <- rpart(classe ~ ., data=TrainSet, method="class")
+predictDecTree <- predict(modFitDecTree, newdata=TestSet, type="class")
+confMatDecTree <- confusionMatrix(predictDecTree, TestSet$classe)
+confMatDecTree
+```
+# 2.Random forest method
+```{r}
+set.seed(12345)
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+RandomForest <- train(classe ~ ., data=TrainSet, method="rf",
+                          trControl=controlRF)
+predictRandForest <- predict(RandomForest, newdata=TestSet)
+RandForestMatrix <- confusionMatrix(predictRandForest, TestSet$classe)
+RandForestMatrix
+```
+Accuracy of Random forest method which is 0.99 is higher than the accuracy of Dicision tree method which is 0.74.Because of that Random forest method is applied to the test data.
+
+## Applying to test data
+```{r}
+prediction <- predict(RandomForest, newdata=testing)
+ prediction
+```
+
